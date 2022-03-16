@@ -33,11 +33,11 @@ class HttpSslPinningOverride extends HttpOverrides {
       return;
     }
 
-    if (T is String) {
+    if (T == String) {
       _trustedSha1.add((sha1 as String).normalizedSha1);
-    } else if (T is List<String>) {
+    } else if (T == List<String>) {
       _trustedSha1.add((sha1 as List<String>).normalizedSha1);
-    } else if (T is List<int>) {
+    } else if (T == List<int>) {
       _trustedSha1.add((sha1 as List<int>).normalizedSha1);
     } else {
       throw UnimplementedError('addTrustedSha1 is undefined for $T');
@@ -89,5 +89,5 @@ extension _IntsToSha1 on Iterable<int> {
 }
 
 extension _StringToSha1 on String {
-  String get normalizedSha1 => split(RegExp(r'[^\dA-Fa-f]')).normalizedSha1;
+  String get normalizedSha1 => split(RegExp(r'[^\dA-Fa-f]+')).normalizedSha1;
 }
