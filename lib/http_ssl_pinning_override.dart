@@ -5,38 +5,65 @@ import 'package:http_proxy_override/http_proxy_override.dart';
 
 class HttpSslPinningOverride extends HttpOverrides {
   late final HttpProxyOverride? _proxyOverride;
-  late final bool _isSslPinning;
   late final bool _ignoreSslErrors;
 
-  final SecurityContext _securityContext = SecurityContext();
-  HttpSslPinningOverride._(List<List<int>>? certs, this._ignoreSslErrors) {
-    if (certs == null || certs.isEmpty) {
-      _isSslPinning = false;
-      return;
-    }
-    _isSslPinning = true;
-    for (final cert in certs) {
-      _securityContext.setTrustedCertificatesBytes(cert);
-    }
-  }
+  final _trustedSha1 = <String>{};
+
+  HttpSslPinningOverride._(this._ignoreSslErrors);
 
   static Future<HttpSslPinningOverride> createSslPinning({
     bool useSystemProxy = false,
     bool ignoreSslErrors = false,
-    List<List<int>>? certs,
   }) async {
-    return HttpSslPinningOverride._(certs, ignoreSslErrors)
+    return HttpSslPinningOverride._(ignoreSslErrors)
       .._proxyOverride =
           ((useSystemProxy) ? await HttpProxyOverride.createHttpProxy() : null);
   }
 
+  void addTrustedCert(List<int> certBytes) {
+    if (certBytes.isEmpty) {
+      return;
+    }
+
+    SecurityContext.defaultContext.setTrustedCertificatesBytes(certBytes);
+  }
+
+  void addTrustedSha1<T>(T sha1) {
+    if (sha1 == null) {
+      return;
+    }
+
+    if (T is String) {
+      _trustedSha1.add((sha1 as String).normalizedSha1);
+    } else if (T is List<String>) {
+      _trustedSha1.add((sha1 as List<String>).normalizedSha1);
+    } else if (T is List<int>) {
+      _trustedSha1.add((sha1 as List<int>).normalizedSha1);
+    } else {
+      throw UnimplementedError('addTrustedSha1 is undefined for $T');
+    }
+  }
+
+  void addTrusted<T>(List<int>? certBytes, T sha1) {
+    if (certBytes != null) {
+      addTrustedCert(certBytes);
+    }
+
+    if (sha1 != null) {
+      addTrustedSha1(sha1);
+    }
+  }
+
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    final client =
-        super.createHttpClient(_isSslPinning ? _securityContext : context);
-    client.badCertificateCallback =
-        (X509Certificate cert, String host, int port) {
-      return _ignoreSslErrors;
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (
+      X509Certificate cert,
+      String host,
+      int port,
+    ) {
+      return _ignoreSslErrors ||
+          _trustedSha1.contains(cert.sha1.normalizedSha1);
     };
     return client;
   }
@@ -49,4 +76,18 @@ class HttpSslPinningOverride extends HttpOverrides {
 
     return super.findProxyFromEnvironment(url, environment);
   }
+}
+
+extension _StringsToSha1 on Iterable<String> {
+  String get normalizedSha1 =>
+      map((e) => e.padLeft(2, '0')).join().toLowerCase();
+}
+
+extension _IntsToSha1 on Iterable<int> {
+  String get normalizedSha1 =>
+      map((e) => e.toRadixString(16).padLeft(2, '0')).join().toLowerCase();
+}
+
+extension _StringToSha1 on String {
+  String get normalizedSha1 => split(RegExp(r'[^\dA-Fa-f]')).normalizedSha1;
 }
