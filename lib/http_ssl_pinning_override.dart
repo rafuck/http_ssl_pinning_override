@@ -33,12 +33,12 @@ class HttpSslPinningOverride extends HttpOverrides {
       return;
     }
 
-    if (T == String) {
-      _trustedSha1.add((sha1 as String).normalizedSha1);
-    } else if (T == List<String>) {
-      _trustedSha1.add((sha1 as List<String>).normalizedSha1);
-    } else if (T == List<int>) {
-      _trustedSha1.add((sha1 as List<int>).normalizedSha1);
+    if (sha1 is String) {
+      _trustedSha1.add(sha1.normalizedSha1);
+    } else if (sha1 is Iterable<String>) {
+      _trustedSha1.add(sha1.normalizedSha1);
+    } else if (sha1 is Iterable<int>) {
+      _trustedSha1.add(sha1.normalizedSha1);
     } else {
       throw UnimplementedError('addTrustedSha1 is undefined for $T');
     }
